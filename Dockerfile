@@ -37,7 +37,7 @@ RUN { \
 } > /usr/local/etc/php/conf.d/moodle-php.ini
 
 # Allow fetching a specific Moodle branch or tag dynamically
-ARG MOODLE_VERSION=v5.1.2
+ARG MOODLE_VERSION=v5.1.3
 ENV MOODLE_VERSION=${MOODLE_VERSION}
 
 # Clone Moodle source code
