@@ -1,5 +1,8 @@
 name: Update Moodle Version
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     - cron: '0 3 * * *' # Every day at 03:00 UTC
