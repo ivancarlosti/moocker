@@ -66,3 +66,32 @@ Para usar este projeto em um servidor com reverse proxy (como Nginx, Traefik ou 
      ```php
      $CFG->sslproxy = true;
      ```
+
+## Usando um Banco de Dados MariaDB Externo
+
+Caso você não queira utilizar o serviço `db` incluso no `docker-compose.yml` e prefira usar um banco de dados MariaDB externo (em outro servidor ou serviço na nuvem), siga estes passos:
+
+1. **Crie o Banco de Dados Corretamente**:
+   No seu MariaDB externo, é obrigatório criar o banco de dados utilizando a codificação `utf8mb4`. Execute a seguinte query no seu banco de dados:
+   ```sql
+   CREATE DATABASE moodle DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+2. **Edite as Variáveis de Ambiente**:
+   No arquivo `docker/.env`, altere as configurações de conexão para apontar para o seu banco externo:
+   ```env
+   DB_NAME=moodle
+   DB_USER=seu_usuario
+   DB_PASSWORD=sua_senha
+   ```
+
+3. **Atualize o Host do Banco de Dados no Docker Compose**:
+   No arquivo `docker/docker-compose.yml`, altere a variável fixa `MOODLE_DATABASE_HOST=db` para apontar para o IP ou domínio do seu servidor externo de banco de dados:
+   ```yaml
+   environment:
+     - MOODLE_DATABASE_HOST=ip_do_seu_banco
+     ...
+   ```
+
+4. **(Opcional) Remova o serviço local de banco de dados**:
+   Para não subir um banco local desnecessário, você pode remover ou comentar toda a seção `db:` no arquivo `docker-compose.yml`, assim como a string correspondente em `depends_on:` no serviço `moodle`.

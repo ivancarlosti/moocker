@@ -1,8 +1,5 @@
 name: Update README
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 # Allow GitHub Actions to commit and push changes
 permissions:
   contents: write
