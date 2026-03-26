@@ -5,14 +5,14 @@ services:
     image: ghcr.io/ivancarlosti/moocker:latest
     container_name: moodle_app
     ports:
-      - "${MOODLE_PORT}:80"
+      - "127.0.0.1:${MOODLE_PORT}:80"
     environment:
       - MOODLE_DATABASE_TYPE=mariadb
       - MOODLE_DATABASE_HOST=db
       - MOODLE_DATABASE_NAME=${DB_NAME}
       - MOODLE_DATABASE_USER=${DB_USER}
       - MOODLE_DATABASE_PASSWORD=${DB_PASSWORD}
-      - MOODLE_URL=http://localhost:${MOODLE_PORT}
+      - MOODLE_URL=${MOODLE_URL}
     volumes:
       - ./moodledata:/var/www/moodledata
     depends_on:
