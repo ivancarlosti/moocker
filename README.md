@@ -62,7 +62,7 @@ Para usar este projeto em um servidor com reverse proxy (como Nginx, Traefik ou 
 
 4. **Instalação e SSL Proxy**:
    - Ao acessar `https://meumoodle.com.br` no navegador pela primeira vez, a instalação utilizará automaticamente seu `MOODLE_URL` do `.env` como URL principal.
-   - Caso o frontend esteja utilizando HTTPS (o padrão de certificados TLS no Reverse Proxy), pode ser necessário avisar o Moodle no arquivo de configuração ao finalizar a instalação. Acesse `docker/moodledata/config.php` (ou acesse o container do moodle) e adicione a seguinte linha se enfrentar loops de redirecionamentos:
+   - Caso o frontend esteja utilizando HTTPS (o padrão de certificados TLS no Reverse Proxy), pode ser necessário avisar o Moodle no arquivo de configuração ao finalizar a instalação. Acesse o container do moodle e edite o arquivo (`docker exec -it moodle_app bash`, depois `nano /var/www/moodledata/config.php`) adicionando a seguinte linha se enfrentar loops de redirecionamentos:
      ```php
      $CFG->sslproxy = true;
      ```
