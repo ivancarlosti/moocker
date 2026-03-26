@@ -52,9 +52,12 @@ RUN mkdir -p /var/www/moodledata \
     && chown -R www-data:www-data /var/www/moodledata \
     && chmod -R 777 /var/www/moodledata
 
-# Update Apache configuration to point to Moodle directory if needed, default is /var/www/html
-# Also set ServerName to suppress warnings
-RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+# Update Apache configuration to point to Moodle public directory
+# Moodle 5.0+ requires DocumentRoot to be /var/www/html/public
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}/!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 EXPOSE 80
 
