@@ -22,6 +22,7 @@ services:
   db:
     image: mariadb:10.11
     container_name: moodle_db
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}

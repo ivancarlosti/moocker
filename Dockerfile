@@ -11,8 +11,11 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap opcache \
+    && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap opcache exif \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set recommended OPcode cache for Moodle
 RUN { \
@@ -34,6 +37,7 @@ RUN { \
     echo 'post_max_size = 50M'; \
     echo 'upload_max_filesize = 50M'; \
     echo 'max_input_vars = 5000'; \
+    echo 'zend.exception_ignore_args = On'; \
 } > /usr/local/etc/php/conf.d/moodle-php.ini
 
 # Allow fetching a specific Moodle branch or tag dynamically
@@ -45,7 +49,8 @@ WORKDIR /var/www/html
 RUN rm -rf * \
     && git clone --depth=1 --branch ${MOODLE_VERSION} git://git.moodle.org/moodle.git . \
     && chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+    && chmod -R 755 /var/www/html \
+    && composer install --no-dev --classmap-authoritative --no-interaction
 
 # Create moodledata directory
 RUN mkdir -p /var/www/moodledata \
