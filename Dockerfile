@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     git \
     unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) mysqli zip gd intl xmlrpc soap opcache \
+    && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set recommended OPcode cache for Moodle

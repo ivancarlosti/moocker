@@ -1,0 +1,75 @@
+name: Update Moodle Version
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Every day at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Latest Moodle Release Tag
+        id: moodle_version
+        run: |
+          LATEST_TAG=$(git ls-remote --tags https://github.com/moodle/moodle.git | awk -F/ '{print $3}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "Error fetching latest Moodle version."
+            exit 1
+          fi
+          echo "Latest Moodle Tag is: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Get Current Version in Dockerfile
+        id: current_version
+        run: |
+          # Extract current version from Dockerfile
+          CURRENT_TAG=$(grep '^ARG MOODLE_VERSION=' Dockerfile | cut -d '=' -f 2)
+          echo "Current Moodle Tag is: $CURRENT_TAG"
+          echo "tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+
+      - name: Compare and Update Dockerfile
+        id: update_check
+        run: |
+          LATEST="${{ steps.moodle_version.outputs.tag }}"
+          CURRENT="${{ steps.current_version.outputs.tag }}"
+          
+          if [ "$LATEST" != "$CURRENT" ]; then
+            echo "New version found ($LATEST). Updating Dockerfile."
+            sed -i "s/^ARG MOODLE_VERSION=.*/ARG MOODLE_VERSION=$LATEST/" Dockerfile
+            echo "should_trigger=true" >> $GITHUB_OUTPUT
+          else
+            echo "Dockerfile already contains the latest Moodle version ($CURRENT). No update needed."
+            echo "should_trigger=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Force push on workflow_dispatch
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_trigger=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and Push Changes
+        if: steps.update_check.outputs.should_trigger == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Dockerfile
+          # If no changes are detected because we forced workflow_dispatch but it's the same version, git commit will fail. That's fine.
+          git commit -m "chore: Update Moodle version to ${{ steps.moodle_version.outputs.tag }}" || echo "No changes to commit"
+          git push origin main
+
+      - name: Trigger Release Build
+        if: steps.update_check.outputs.should_trigger == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Give GitHub a moment to register the push
+          sleep 5
+          gh workflow run release_build.yml --ref main
