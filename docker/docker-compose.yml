@@ -14,7 +14,7 @@ services:
       - MOODLE_DATABASE_PASSWORD=${DB_PASSWORD}
       - MOODLE_URL=http://localhost:${MOODLE_PORT}
     volumes:
-      - moodledata:/var/www/moodledata
+      - ./moodledata:/var/www/moodledata
     depends_on:
       - db
     restart: always
