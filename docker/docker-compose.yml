@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   moodle:
-    image: ghcr.io/${GITHUB_USER}/moocker:latest
+    image: ghcr.io/ivancarlosti/moocker:latest
     container_name: moodle_app
     ports:
       - "${MOODLE_PORT}:80"
