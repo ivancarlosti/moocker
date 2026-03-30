@@ -2,6 +2,10 @@
 
 Um sistema de treinamento em Docker usando o Moodle.
 
+<!-- buttons -->
+
+<!-- endbuttons -->
+
 ## Como rodar localmente com o Docker Compose
 
 Os arquivos necessários para rodar o projeto via Docker Compose estão na pasta `docker`.
@@ -95,3 +99,5 @@ Caso você não queira utilizar o serviço `db` incluso no `docker-compose.yml` 
 
 4. **(Opcional) Remova o serviço local de banco de dados**:
    Para não subir um banco local desnecessário, você pode remover ou comentar toda a seção `db:` no arquivo `docker-compose.yml`, assim como a string correspondente em `depends_on:` no serviço `moodle`.
+
+<!-- footer -->
