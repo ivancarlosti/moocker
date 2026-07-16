@@ -57,6 +57,10 @@ RUN mkdir -p /var/www/moodledata \
     && chown -R www-data:www-data /var/www/moodledata \
     && chmod -R 777 /var/www/moodledata
 
+# Copy entrypoint script for auto-configuration
+COPY docker/moodle-entrypoint.sh /usr/local/bin/moodle-entrypoint.sh
+RUN chmod +x /usr/local/bin/moodle-entrypoint.sh
+
 # Update Apache configuration to point to Moodle public directory
 # Moodle 5.0+ requires DocumentRoot to be /var/www/html/public
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
@@ -66,4 +70,4 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 
 EXPOSE 80
 
-CMD bash -c "chown -R www-data:www-data /var/www/moodledata && apache2-foreground"
+ENTRYPOINT ["/usr/local/bin/moodle-entrypoint.sh"]
