@@ -66,6 +66,12 @@ global \$CFG;
 
 \$CFG->sslproxy  = ${SSLPROXY};
 
+// When behind a reverse proxy that terminates SSL, force HTTPS detection
+// before setup.php runs its wwwroot check (otherwise http vs https mismatch = redirect loop)
+if (!empty(\$CFG->sslproxy)) {
+    \$_SERVER['HTTPS'] = 'on';
+}
+
 require_once(__DIR__ . '/lib/setup.php');
 MOODLECONFIG
 
