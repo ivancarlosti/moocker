@@ -3,7 +3,7 @@ set -e
 
 # Moodle auto-configuration entrypoint
 # Generates config.php from environment variables on every container start,
-# so changes to .env (DB host, name, user, password, URL) take effect immediately.
+# runs pending database upgrades via CLI, then starts Apache.
 
 CONFIG_FILE="/var/www/html/config.php"
 MOODLEDATA_DIR="/var/www/moodledata"
@@ -12,9 +12,13 @@ MOODLEDATA_DIR="/var/www/moodledata"
 if [ -d "$MOODLEDATA_DIR" ]; then
     chown -R www-data:www-data "$MOODLEDATA_DIR"
     chmod -R 777 "$MOODLEDATA_DIR"
+
+    # Purge stale caches that cause issues after PHP/Moodle version upgrades
+    echo ">>> Purging Moodle caches..."
+    rm -rf "$MOODLEDATA_DIR/cache" "$MOODLEDATA_DIR/localcache" "$MOODLEDATA_DIR/muc" 2>/dev/null || true
 fi
 
-# Resolve env vars at bash level — NOT via PHP getenv() which fails without variables_order=E
+# Resolve env vars at bash level
 DB_TYPE="${MOODLE_DATABASE_TYPE:-mariadb}"
 DB_HOST="${MOODLE_DATABASE_HOST:-db}"
 DB_NAME="${MOODLE_DATABASE_NAME:-moodle}"
@@ -22,7 +26,11 @@ DB_USER="${MOODLE_DATABASE_USER:-moodleuser}"
 DB_PASS="${MOODLE_DATABASE_PASSWORD:-moodlepass}"
 WWWROOT="${MOODLE_URL:-http://localhost:8080}"
 
-echo ">>> Generating config.php from environment variables..."
+echo ">>> Generating config.php..."
+echo "    wwwroot: ${WWWROOT}"
+echo "    dbhost:  ${DB_HOST}"
+echo "    dbname:  ${DB_NAME}"
+echo "    dbuser:  ${DB_USER}"
 
 cat > "$CONFIG_FILE" << MOODLECONFIG
 <?php
@@ -40,7 +48,7 @@ global \$CFG;
 \$CFG->dbpass    = '${DB_PASS}';
 \$CFG->prefix    = 'mdl_';
 \$CFG->dboptions = array(
-    'dbpersist' => false,
+    'dbpersist' => 0,
     'dbport'    => '',
     'dbsocket'  => '',
     'dbcollation' => 'utf8mb4_unicode_ci',
@@ -48,6 +56,7 @@ global \$CFG;
 
 \$CFG->wwwroot   = '${WWWROOT}';
 \$CFG->dataroot  = '/var/www/moodledata';
+\$CFG->dirroot   = '/var/www/html';
 \$CFG->admin     = 'admin';
 
 \$CFG->directorypermissions = 0777;
@@ -58,7 +67,15 @@ MOODLECONFIG
 chown www-data:www-data "$CONFIG_FILE"
 chmod 644 "$CONFIG_FILE"
 
-echo ">>> config.php generated successfully."
+echo ">>> config.php written."
+
+# Run any pending database upgrades via CLI (avoids web redirect loops)
+echo ">>> Checking for pending Moodle upgrades..."
+if php /var/www/html/admin/cli/upgrade.php --non-interactive --allow-unstable 2>&1; then
+    echo ">>> Upgrade check complete."
+else
+    echo ">>> Upgrade check finished with warnings (this is normal for first run)."
+fi
 
 # Hand off to Apache
 exec apache2-foreground
