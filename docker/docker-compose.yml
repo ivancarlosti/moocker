@@ -11,6 +11,7 @@ services:
       - MOODLE_DATABASE_USER=${DB_USER}
       - MOODLE_DATABASE_PASSWORD=${DB_PASSWORD}
       - MOODLE_URL=${MOODLE_URL}
+      - MOODLE_SSLPROXY=${MOODLE_SSLPROXY:-false}
     volumes:
       - ./moodledata:/var/www/moodledata
     restart: unless-stopped

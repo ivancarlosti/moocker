@@ -25,12 +25,14 @@ DB_NAME="${MOODLE_DATABASE_NAME:-moodle}"
 DB_USER="${MOODLE_DATABASE_USER:-moodleuser}"
 DB_PASS="${MOODLE_DATABASE_PASSWORD:-moodlepass}"
 WWWROOT="${MOODLE_URL:-http://localhost:8080}"
+SSLPROXY="${MOODLE_SSLPROXY:-false}"
 
 echo ">>> Generating config.php..."
-echo "    wwwroot: ${WWWROOT}"
-echo "    dbhost:  ${DB_HOST}"
-echo "    dbname:  ${DB_NAME}"
-echo "    dbuser:  ${DB_USER}"
+echo "    wwwroot:  ${WWWROOT}"
+echo "    dbhost:   ${DB_HOST}"
+echo "    dbname:   ${DB_NAME}"
+echo "    dbuser:   ${DB_USER}"
+echo "    sslproxy: ${SSLPROXY}"
 
 cat > "$CONFIG_FILE" << MOODLECONFIG
 <?php
@@ -57,9 +59,12 @@ global \$CFG;
 \$CFG->wwwroot   = '${WWWROOT}';
 \$CFG->dataroot  = '/var/www/moodledata';
 \$CFG->dirroot   = '/var/www/html';
+\$CFG->libdir    = '/var/www/html/lib';
 \$CFG->admin     = 'admin';
 
 \$CFG->directorypermissions = 0777;
+
+\$CFG->sslproxy  = ${SSLPROXY};
 
 require_once(__DIR__ . '/lib/setup.php');
 MOODLECONFIG
