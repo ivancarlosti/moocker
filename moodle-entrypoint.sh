@@ -25,7 +25,16 @@ DB_NAME="${MOODLE_DATABASE_NAME:-moodle}"
 DB_USER="${MOODLE_DATABASE_USER:-moodleuser}"
 DB_PASS="${MOODLE_DATABASE_PASSWORD:-moodlepass}"
 WWWROOT="${MOODLE_URL:-http://localhost:8080}"
-SSLPROXY="${MOODLE_SSLPROXY:-false}"
+
+# Auto-detect sslproxy: if wwwroot uses https://, enable it automatically
+# Can be overridden by explicitly setting MOODLE_SSLPROXY env var
+if [ -n "${MOODLE_SSLPROXY+x}" ]; then
+    SSLPROXY="${MOODLE_SSLPROXY}"
+elif [[ "$WWWROOT" == https://* ]]; then
+    SSLPROXY="true"
+else
+    SSLPROXY="false"
+fi
 
 echo ">>> Generating config.php..."
 echo "    wwwroot:  ${WWWROOT}"
