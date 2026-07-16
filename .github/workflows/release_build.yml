@@ -198,15 +198,18 @@ jobs:
 
       - name: 🚀 Create GitHub Release
         if: steps.check_commits.outputs.commit_count != '0'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ steps.version.outputs.VERSION }}"
-          name: "${{ steps.version.outputs.REPO_NAME }} v${{ steps.version.outputs.VERSION }}"
-          body: |
-            ### Changelog
-            Files changed in this release:
-            ${{ steps.changed_files.outputs.CHANGED }}
-          files: ${{ steps.version.outputs.ZIP_NAME }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'BODYEOF' > /tmp/release_body.md
+          ### Changelog
+          Files changed in this release:
+          ${{ steps.changed_files.outputs.CHANGED }}
+          BODYEOF
+          gh release create "v${{ steps.version.outputs.VERSION }}" \
+            "${{ steps.version.outputs.ZIP_NAME }}" \
+            --title "${{ steps.version.outputs.REPO_NAME }} v${{ steps.version.outputs.VERSION }}" \
+            --notes-file /tmp/release_body.md
 
       # ----- Docker steps -----
       - name: 🔍 Check if Dockerfile exists
