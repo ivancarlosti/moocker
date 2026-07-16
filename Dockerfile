@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 # Install required packages and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -50,6 +50,7 @@ RUN rm -rf * \
     && git clone --depth=1 --branch ${MOODLE_VERSION} https://github.com/moodle/moodle.git . \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
+    && git config --global --add safe.directory /var/www/html \
     && composer install --no-dev --classmap-authoritative --no-interaction
 
 # Create moodledata directory
@@ -63,7 +64,7 @@ RUN chmod +x /usr/local/bin/moodle-entrypoint.sh
 
 # Update Apache configuration to point to Moodle public directory
 # Moodle 5.0+ requires DocumentRoot to be /var/www/html/public
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}/!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && echo "ServerName localhost" >> /etc/apache2/apache2.conf
