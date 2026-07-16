@@ -13,7 +13,6 @@ services:
       - MOODLE_URL=${MOODLE_URL}
     volumes:
       - ./moodledata:/var/www/moodledata
-      - ./config.php:/var/www/html/config.php
     depends_on:
       - db
     restart: unless-stopped

@@ -2,10 +2,11 @@
 set -e
 
 # Moodle auto-configuration entrypoint
-# Generates config.php from environment variables if it doesn't exist,
-# so Moodle survives container recreations and server reboots.
+# Persists config.php inside the moodledata volume so it survives
+# container recreations and server reboots without bind-mount issues.
 
 CONFIG_FILE="/var/www/html/config.php"
+CONFIG_BACKUP="/var/www/moodledata/.config.php"
 MOODLEDATA_DIR="/var/www/moodledata"
 
 # Fix permissions on moodledata (mounted volume)
@@ -14,14 +15,28 @@ if [ -d "$MOODLEDATA_DIR" ]; then
     chmod -R 777 "$MOODLEDATA_DIR"
 fi
 
-# Handle edge case: if Docker bind-mount created config.php as a directory, remove it
-if [ -d "$CONFIG_FILE" ] && [ ! -L "$CONFIG_FILE" ]; then
-    echo ">>> config.php is a directory (likely from an empty bind mount). Removing it..."
-    rm -rf "$CONFIG_FILE"
-fi
+# Restore config.php from moodledata backup if it exists
+if [ -f "$CONFIG_BACKUP" ]; then
+    echo ">>> Restoring config.php from moodledata backup..."
+    cp "$CONFIG_BACKUP" "$CONFIG_FILE"
+    chown www-data:www-data "$CONFIG_FILE"
+    chmod 644 "$CONFIG_FILE"
 
-# Generate config.php if it doesn't exist
-if [ ! -f "$CONFIG_FILE" ]; then
+    # Ensure wwwroot is updated if MOODLE_URL changed
+    if [ -n "$MOODLE_URL" ]; then
+        CURRENT_URL=$(php -r "include '$CONFIG_FILE'; echo \$CFG->wwwroot;" 2>/dev/null || echo "")
+        if [ "$CURRENT_URL" != "$MOODLE_URL" ] && [ -n "$CURRENT_URL" ]; then
+            echo ">>> Updating wwwroot from '$CURRENT_URL' to '$MOODLE_URL'..."
+            sed -i "s|\$CFG->wwwroot\s*=.*|\$CFG->wwwroot   = '$MOODLE_URL';|" "$CONFIG_FILE"
+            # Sync the update back to the backup
+            cp "$CONFIG_FILE" "$CONFIG_BACKUP"
+        fi
+    fi
+
+    echo ">>> config.php restored successfully."
+
+# Generate fresh config.php from environment variables
+else
     echo ">>> Moodle config.php not found. Generating from environment variables..."
 
     cat > "$CONFIG_FILE" << 'MOODLECONFIG'
@@ -61,18 +76,10 @@ MOODLECONFIG
     chown www-data:www-data "$CONFIG_FILE"
     chmod 644 "$CONFIG_FILE"
 
-    echo ">>> config.php generated successfully."
-else
-    echo ">>> config.php already exists. Skipping generation."
+    # Save backup to persistent moodledata volume
+    cp "$CONFIG_FILE" "$CONFIG_BACKUP"
 
-    # Ensure wwwroot is updated if MOODLE_URL changed
-    if [ -n "$MOODLE_URL" ]; then
-        CURRENT_URL=$(php -r "include '$CONFIG_FILE'; echo \$CFG->wwwroot;" 2>/dev/null || echo "")
-        if [ "$CURRENT_URL" != "$MOODLE_URL" ] && [ -n "$CURRENT_URL" ]; then
-            echo ">>> Updating wwwroot from '$CURRENT_URL' to '$MOODLE_URL'..."
-            sed -i "s|\$CFG->wwwroot\s*=.*|\$CFG->wwwroot   = '$MOODLE_URL';|" "$CONFIG_FILE"
-        fi
-    fi
+    echo ">>> config.php generated and backed up successfully."
 fi
 
 # Hand off to Apache
