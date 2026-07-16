@@ -47,7 +47,7 @@ ENV MOODLE_VERSION=${MOODLE_VERSION}
 # Clone Moodle source code
 WORKDIR /var/www/html
 RUN rm -rf * \
-    && git clone --depth=1 --branch ${MOODLE_VERSION} git://git.moodle.org/moodle.git . \
+    && git clone --depth=1 --branch ${MOODLE_VERSION} https://git.moodle.org/moodle.git . \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && composer install --no-dev --classmap-authoritative --no-interaction
@@ -58,7 +58,7 @@ RUN mkdir -p /var/www/moodledata \
     && chmod -R 777 /var/www/moodledata
 
 # Copy entrypoint script for auto-configuration
-COPY docker/moodle-entrypoint.sh /usr/local/bin/moodle-entrypoint.sh
+COPY moodle-entrypoint.sh /usr/local/bin/moodle-entrypoint.sh
 RUN chmod +x /usr/local/bin/moodle-entrypoint.sh
 
 # Update Apache configuration to point to Moodle public directory
