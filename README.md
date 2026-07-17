@@ -22,11 +22,16 @@ This project provides a production-ready Docker image for Moodle with the follow
 - **PHP 8.3** with Apache and Moodle-optimized extensions (`mysqli`, `zip`, `gd`, `intl`, `soap`, `opcache`, `exif`)
 - **OPcache** pre-configured with Moodle-recommended values
 - **PHP limits** tuned: `memory_limit=512M`, `max_execution_time=300`, `post_max_size=50M`, `upload_max_filesize=50M`, `max_input_vars=5000`
-- **Automatic entrypoint** that generates `config.php` from environment variables, purges stale caches, runs pending upgrades via CLI, and starts Apache
+- **Automatic entrypoint** that generates `config.php` from environment variables, purges stale caches, runs pending upgrades via CLI, starts the cron daemon, and launches Apache
 - **Automatic SSL Proxy detection**: if `MOODLE_URL` uses `https://`, `sslproxy` is enabled automatically, preventing redirect loops behind reverse proxies
 - **External database support**: the application expects an accessible MariaDB instance (local or remote), with no bundled database service in compose
+- **Moodle cron** runs every minute via the system cron daemon (`cron`) to process background tasks: email delivery, automated backups, notifications, RSS feeds, statistics, and other scheduled jobs
 
 > The image is automatically published via GitHub Actions to `ghcr.io/ivancarlosti/moocker:latest` whenever a new stable Moodle release is available.
+
+> [!WARNING]
+> **Before updating the Docker image (`docker compose pull`), always back up your database and filesystem (`moodledata/`).**
+> Moodle upgrades executed by the entrypoint modify the database schema and file structures. A rollback to a previous image version may be impossible without a full, up-to-date backup. Always create a snapshot of both your MariaDB database and the `moodledata/` volume before pulling a new image.
 
 ## Prerequisites
 
