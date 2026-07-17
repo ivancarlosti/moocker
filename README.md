@@ -29,9 +29,9 @@ This project provides a production-ready Docker image for Moodle with the follow
 
 > The image is automatically published via GitHub Actions to `ghcr.io/ivancarlosti/moocker:latest` whenever a new stable Moodle release is available.
 
-> [!WARNING]
-> **Before updating the Docker image (`docker compose pull`), always back up your database and filesystem (`moodledata/`).**
-> Moodle upgrades executed by the entrypoint modify the database schema and file structures. A rollback to a previous image version may be impossible without a full, up-to-date backup. Always create a snapshot of both your MariaDB database and the `moodledata/` volume before pulling a new image.
+> [!NOTE]
+> **Before updating the Docker image (`docker compose pull`), consider backing up your database and filesystem (`moodledata/`) before updating.**
+> Running docker compose pull triggers automated entrypoint updates that can modify your database schema and file structures. Taking a quick snapshot of your MariaDB database and filesystem before updating ensures you can easily roll back if any compatibility issues arise.
 
 ## Prerequisites
 
