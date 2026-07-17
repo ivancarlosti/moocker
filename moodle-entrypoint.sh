@@ -26,14 +26,24 @@ DB_USER="${MOODLE_DATABASE_USER:-moodleuser}"
 DB_PASS="${MOODLE_DATABASE_PASSWORD:-moodlepass}"
 WWWROOT="${MOODLE_URL:-http://localhost:8080}"
 
-# Auto-detect sslproxy: if wwwroot uses https://, enable it automatically
-# Can be overridden by explicitly setting MOODLE_SSLPROXY env var
-if [ -n "${MOODLE_SSLPROXY+x}" ]; then
+# Auto-detect sslproxy: if wwwroot uses https://, enable it automatically.
+# MOODLE_SSLPROXY env var can override, but we WARN on mismatch.
+if [ -n "${MOODLE_SSLPROXY+x}" ] && [ -n "${MOODLE_SSLPROXY}" ]; then
     SSLPROXY="${MOODLE_SSLPROXY}"
-elif [[ "$WWWROOT" == https://* ]]; then
-    SSLPROXY="true"
 else
-    SSLPROXY="false"
+    # Not set or empty — auto-detect
+    if [[ "$WWWROOT" == https://* ]]; then
+        SSLPROXY="true"
+    else
+        SSLPROXY="false"
+    fi
+fi
+
+# Safety: if wwwroot is https, sslproxy MUST be true — override with warning
+if [[ "$WWWROOT" == https://* ]] && [ "$SSLPROXY" != "true" ]; then
+    echo "!!! WARNING: wwwroot uses https but sslproxy is '${SSLPROXY}'. Forcing sslproxy=true to prevent redirect loop."
+    echo "!!! Set MOODLE_SSLPROXY=true explicitly to silence this warning."
+    SSLPROXY="true"
 fi
 
 echo ">>> Generating config.php..."
@@ -79,6 +89,17 @@ global \$CFG;
 // before setup.php runs its wwwroot check (otherwise http vs https mismatch = redirect loop)
 if (!empty(\$CFG->sslproxy)) {
     \$_SERVER['HTTPS'] = 'on';
+}
+
+// ---- DEBUG: log request info to Apache error log (docker stdout) ----
+\$debugRequest = true;  // set to false after troubleshooting
+if (\$debugRequest && php_sapi_name() !== 'cli') {
+    \$proto = \$_SERVER['HTTPS'] ?? \$_SERVER['REQUEST_SCHEME'] ?? \$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'unknown';
+    \$host  = \$_SERVER['HTTP_HOST'] ?? \$_SERVER['SERVER_NAME'] ?? 'unknown';
+    \$uri   = \$_SERVER['REQUEST_URI'] ?? '/';
+    \$xff   = \$_SERVER['HTTP_X_FORWARDED_FOR'] ?? 'none';
+    \$xfp   = \$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'none';
+    error_log("[moocker debug] proto={$proto} host={$host} uri={$uri} sslproxy=" . (\$CFG->sslproxy ? 'true' : 'false') . " wwwroot={$CFG->wwwroot} x-forwarded-proto={$xfp} x-forwarded-for={$xff}");
 }
 
 require_once(__DIR__ . '/lib/setup.php');
