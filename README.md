@@ -1,6 +1,8 @@
 # Moocker
 
-Um sistema de treinamento em Docker usando o Moodle.
+A Docker-based Moodle training system.
+
+**Current version:** `2.6.2` — Moodle `v5.2.1` on PHP `8.3` with Apache.
 
 <!-- buttons -->
 [![Stars](https://img.shields.io/github/stars/ivancarlosti/moocker?label=⭐%20Stars&color=gold&style=flat)](https://github.com/ivancarlosti/moocker/stargazers)
@@ -15,53 +17,84 @@ Um sistema de treinamento em Docker usando o Moodle.
 [![Code of Conduct](https://img.shields.io/badge/Code%20of%20Conduct-2.1-4baaaa)](https://github.com/ivancarlosti/moocker?tab=coc-ov-file)
 <!-- endbuttons -->
 
-## Como rodar localmente com o Docker Compose
+## Overview
 
-Os arquivos necessários para rodar o projeto via Docker Compose estão na pasta `docker`.
+This project provides a production-ready Docker image for Moodle with the following features:
 
-1. Acesse o diretório `docker`
+- **PHP 8.3** with Apache and Moodle-optimized extensions (`mysqli`, `zip`, `gd`, `intl`, `soap`, `opcache`, `exif`)
+- **OPcache** pre-configured with Moodle-recommended values
+- **PHP limits** tuned: `memory_limit=512M`, `max_execution_time=300`, `post_max_size=50M`, `upload_max_filesize=50M`, `max_input_vars=5000`
+- **Automatic entrypoint** that generates `config.php` from environment variables, purges stale caches, runs pending upgrades via CLI, and starts Apache
+- **Automatic SSL Proxy detection**: if `MOODLE_URL` uses `https://`, `sslproxy` is enabled automatically, preventing redirect loops behind reverse proxies
+- **External database support**: the application expects an accessible MariaDB instance (local or remote), with no bundled database service in compose
+
+> The image is automatically published via GitHub Actions to `ghcr.io/ivancarlosti/moocker:latest` whenever a new stable Moodle release is available.
+
+## Prerequisites
+
+- **Docker** and **Docker Compose** v2 installed
+- An accessible **MariaDB** database (can be local, remote, or in a separate container)
+
+## How to Run Locally
+
+All required files are in the `docker` directory.
+
+### 1. Prepare the Database
+
+On your MariaDB server, create the database with the proper encoding:
+
+```sql
+CREATE DATABASE moodledb DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+### 2. Configure Environment Variables
+
+Navigate to the `docker` directory and edit the `.env` file to match your environment:
+
 ```bash
 cd docker
 ```
 
-2. (Opcional) Edite as variáveis no arquivo `.env` caso deseje alterar as portas ou as credenciais do banco.  
-O arquivo padrão já vem com tudo pronto para um teste inicial na porta 8080.
+| Variable | Default | Description |
+|---|---|---|
+| `MOODLE_PORT` | `8080` | Local port to expose Moodle |
+| `MOODLE_URL` | `http://localhost:8080` | Public URL of the instance |
+| `MOODLE_SSLPROXY` | `true` | Forces SSL proxy mode (auto-detected if `MOODLE_URL` uses `https://`) |
+| `DB_HOST` | `host.docker.internal` | MariaDB host |
+| `DB_NAME` | `moodledb` | Database name |
+| `DB_USER` | `moodleuser` | Database user |
+| `DB_PASSWORD` | `moodlepass` | Database password |
 
-3. Inicie os containers com o Docker Compose
+> **`host.docker.internal`** automatically resolves to the host machine. If MariaDB is running directly on your machine (outside Docker), keep this value. For a database on another server, use the corresponding IP or domain.
+
+### 3. Start the Container
+
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-4. Acesse o Moodle no seu navegador: `http://localhost:8080` e prossiga com a etapa de instalação via web informando as credenciais definidas no `.env` referentes ao banco de dados:
-   - **Database driver**: MariaDB
-   - **Database host**: db
-   - **Database name**: moodle (ou o configurado no DB_NAME)
-   - **Database user**: moodleuser (ou o configurado no DB_USER)
-   - **Database password**: moodlepass (ou o configurado no DB_PASSWORD)
+### 4. Access Moodle
 
-> Note: Uma action no GitHub Packages gera novar builds da imagem Moodle sempre que existir uma nova versão estável, publicando na imagem `ghcr.io/ivancarlosti/moocker:latest`.
+Open `http://localhost:8080` in your browser. Installation is fully automatic — the entrypoint generates `config.php` with the `.env` credentials and runs any pending upgrades. No web-based setup is required.
 
-## Usando com um Reverse Proxy (ex: Nginx)
+## Using with a Reverse Proxy (Nginx, Traefik, etc.)
 
-Para usar este projeto em um servidor com reverse proxy (como Nginx, Traefik ou similar), você pode fazê-lo em poucas etapas:
+To expose Moodle publicly behind a reverse proxy with HTTPS:
 
-1. **Atualize o arquivo `.env`**:
-   No arquivo `docker/.env`, preencha a variável `MOODLE_URL` com a sua URL pública:
+1. **Configure `.env`**:
    ```env
-   MOODLE_URL=https://meumoodle.com.br
+   MOODLE_URL=https://mymoodle.example.com
    ```
+   The entrypoint automatically detects the `https://` scheme and enables `sslproxy=true`. To disable it, explicitly set `MOODLE_SSLPROXY=false`.
 
-2. **Certifique-se do Port Binding Seguro**:
-   O `docker-compose.yml` expõe o serviço na porta apenas para o `localhost` (`127.0.0.1:${MOODLE_PORT}:80`), ou seja, para acessá-lo publicamente, é obrigatório passar pelo Reverse Proxy que fará o repasse.
+2. **Secure Port Binding**:
+   The `docker-compose.yml` already binds the service only to `127.0.0.1:${MOODLE_PORT}:80`. Public access is only possible through the reverse proxy.
 
-3. **Configure seu Reverse Proxy**:
-   Configure seu Reverse Proxy para redirecionar o tráfego da porta 80/443 do seu domínio para a porta `localhost:8080` (onde o Moodle está rodando localmente no Docker).
-   
-   **Exemplo com Nginx:**
+3. **Example Nginx configuration**:
    ```nginx
    server {
        listen 80;
-       server_name meumoodle.com.br;
+       server_name mymoodle.example.com;
 
        location / {
            proxy_pass http://127.0.0.1:8080;
@@ -73,41 +106,38 @@ Para usar este projeto em um servidor com reverse proxy (como Nginx, Traefik ou 
    }
    ```
 
-4. **Instalação e SSL Proxy**:
-   - Ao acessar `https://meumoodle.com.br` no navegador pela primeira vez, a instalação utilizará automaticamente seu `MOODLE_URL` do `.env` como URL principal.
-   - Caso o frontend esteja utilizando HTTPS (o padrão de certificados TLS no Reverse Proxy), pode ser necessário avisar o Moodle no arquivo de configuração ao finalizar a instalação. Acesse o container do moodle e edite o arquivo (`docker exec -it moodle_app bash`, depois `nano /var/www/moodledata/config.php`) adicionando a seguinte linha se enfrentar loops de redirecionamentos:
-     ```php
-     $CFG->sslproxy = true;
-     ```
+4. **SSL Certificates**:
+   With HTTPS on the proxy, `sslproxy` is enabled automatically. There is no longer any need to manually edit `config.php` — the entrypoint injects `$_SERVER['HTTPS'] = 'on'` when `sslproxy` is enabled.
 
-## Usando um Banco de Dados MariaDB Externo
+## Complete Environment Variables
 
-Caso você não queira utilizar o serviço `db` incluso no `docker-compose.yml` e prefira usar um banco de dados MariaDB externo (em outro servidor ou serviço na nuvem), siga estes passos:
+All variables supported by the container:
 
-1. **Crie o Banco de Dados Corretamente**:
-   No seu MariaDB externo, é obrigatório criar o banco de dados utilizando a codificação `utf8mb4`. Execute a seguinte query no seu banco de dados:
-   ```sql
-   CREATE DATABASE moodle DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `MOODLE_DATABASE_TYPE` | No | `mariadb` | Database type |
+| `MOODLE_DATABASE_HOST` | Yes | `db` | Database host |
+| `MOODLE_DATABASE_NAME` | Yes | `moodle` | Database name |
+| `MOODLE_DATABASE_USER` | Yes | `moodleuser` | Database user |
+| `MOODLE_DATABASE_PASSWORD` | Yes | `moodlepass` | Database password |
+| `MOODLE_URL` | No | `http://localhost:8080` | Public Moodle URL |
+| `MOODLE_SSLPROXY` | No | auto | Forces `sslproxy` (`true`/`false`). If unset, auto-detected from the URL scheme |
 
-2. **Edite as Variáveis de Ambiente**:
-   No arquivo `docker/.env`, altere as configurações de conexão para apontar para o seu banco externo:
-   ```env
-   DB_NAME=moodle
-   DB_USER=seu_usuario
-   DB_PASSWORD=sua_senha
-   ```
+## Project Structure
 
-3. **Atualize o Host do Banco de Dados no Docker Compose**:
-   No arquivo `docker/docker-compose.yml`, altere a variável fixa `MOODLE_DATABASE_HOST=db` para apontar para o IP ou domínio do seu servidor externo de banco de dados:
-   ```yaml
-   environment:
-     - MOODLE_DATABASE_HOST=ip_do_seu_banco
-     ...
-   ```
-
-4. **(Opcional) Remova o serviço local de banco de dados**:
-   Para não subir um banco local desnecessário, você pode remover ou comentar toda a seção `db:` no arquivo `docker-compose.yml`, assim como a string correspondente em `depends_on:` no serviço `moodle`.
+```
+moocker/
+├── Dockerfile                # Image build (PHP 8.3 + Moodle v5.2.1 + Apache)
+├── moodle-entrypoint.sh      # Auto-configuration entrypoint script
+├── manifest.json             # Project metadata and versioning
+├── LICENSE                   # MIT License
+├── README.md                 # This file
+├── docker/
+│   ├── .env                  # Environment variables for Docker Compose
+│   ├── docker-compose.yml    # Moodle container orchestration
+│   └── moodledata/           # Mounted volume for Moodle data
+└── .github/                  # CI/CD workflows
+```
 
 <!-- footer -->
 ---

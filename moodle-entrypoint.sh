@@ -92,17 +92,6 @@ if (!empty(\$CFG->sslproxy)) {
     \$_SERVER['HTTPS'] = 'on';
 }
 
-// ---- DEBUG: log request info to Apache error log (docker stdout) ----
-\$debugRequest = true;  // set to false after troubleshooting
-if (\$debugRequest && php_sapi_name() !== 'cli') {
-    \$proto = \$_SERVER['HTTPS'] ?? \$_SERVER['REQUEST_SCHEME'] ?? \$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'unknown';
-    \$host  = \$_SERVER['HTTP_HOST'] ?? \$_SERVER['SERVER_NAME'] ?? 'unknown';
-    \$uri   = \$_SERVER['REQUEST_URI'] ?? '/';
-    \$xff   = \$_SERVER['HTTP_X_FORWARDED_FOR'] ?? 'none';
-    \$xfp   = \$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'none';
-    error_log("[moocker debug] proto={$proto} host={$host} uri={$uri} sslproxy=" . (\$CFG->sslproxy ? 'true' : 'false') . " wwwroot={$CFG->wwwroot} x-forwarded-proto={$xfp} x-forwarded-for={$xff}");
-}
-
 require_once(__DIR__ . '/lib/setup.php');
 MOODLECONFIG
 
