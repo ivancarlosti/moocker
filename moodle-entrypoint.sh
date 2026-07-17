@@ -84,7 +84,7 @@ global \$CFG;
 \$CFG->directorypermissions = 0777;
 
 \$CFG->sslproxy  = ${SSLPROXY};
-\$CFG->router    = '';
+\$CFG->routerconfigured = true;
 
 // When behind a reverse proxy that terminates SSL, force HTTPS detection
 // before setup.php runs its wwwroot check (otherwise http vs https mismatch = redirect loop)
