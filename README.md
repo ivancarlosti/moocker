@@ -1,8 +1,6 @@
 # Moocker
 
-A Docker-based Moodle training system.
-
-**Current version:** `2.6.2` — Moodle `v5.2.1` on PHP `8.3` with Apache.
+A Docker-based Moodle training system `v5.2.1` on PHP `8.3` with Apache.
 
 <!-- buttons -->
 [![Stars](https://img.shields.io/github/stars/ivancarlosti/moocker?label=⭐%20Stars&color=gold&style=flat)](https://github.com/ivancarlosti/moocker/stargazers)
