@@ -100,6 +100,10 @@ chmod 644 "$CONFIG_FILE"
 
 echo ">>> config.php written."
 
+# Start cron daemon for Moodle background tasks (email delivery, backups, etc.)
+echo ">>> Starting cron daemon..."
+cron
+
 # Run any pending database upgrades via CLI (avoids web redirect loops)
 echo ">>> Checking for pending Moodle upgrades..."
 if php /var/www/html/admin/cli/upgrade.php --non-interactive --allow-unstable 2>&1; then

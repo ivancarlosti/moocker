@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg62-turbo-dev \
     git \
     unzip \
+    cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap opcache exif \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -61,6 +62,12 @@ RUN mkdir -p /var/www/moodledata \
 # Copy entrypoint script for auto-configuration
 COPY moodle-entrypoint.sh /usr/local/bin/moodle-entrypoint.sh
 RUN chmod +x /usr/local/bin/moodle-entrypoint.sh
+
+# Moodle cron job — runs every minute to process background tasks (email, backups, etc.)
+RUN echo '* * * * * www-data /usr/local/bin/php /var/www/html/admin/cli/cron.php >> /var/www/moodledata/cron.log 2>&1' \
+    > /etc/cron.d/moodle \
+    && chmod 0644 /etc/cron.d/moodle \
+    && crontab -u www-data /etc/cron.d/moodle
 
 # Update Apache configuration to point to Moodle public directory
 # Moodle 5.0+ requires DocumentRoot to be /var/www/html/public
