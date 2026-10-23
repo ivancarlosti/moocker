@@ -1,4 +1,7 @@
-FROM php:8.3-apache
+# PHP version used for the base image. Override at build time when needed:
+#   docker build --build-arg PHP_VERSION=8.4 -t moocker .
+ARG PHP_VERSION=8.5
+FROM php:${PHP_VERSION}-apache
 
 # Install required packages and PHP extensions
 RUN apt-get update && apt-get install -y \
@@ -12,7 +15,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap opcache exif \
+    && docker-php-ext-install -j$(nproc) mysqli zip gd intl soap exif \
+    && if ! php -m | grep -qi 'Zend OPcache'; then docker-php-ext-install -j$(nproc) opcache; fi \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install composer
@@ -24,7 +28,6 @@ RUN { \
     echo 'opcache.interned_strings_buffer=8'; \
     echo 'opcache.max_accelerated_files=4000'; \
     echo 'opcache.revalidate_freq=60'; \
-    echo 'opcache.fast_shutdown=1'; \
     echo 'opcache.enable_cli=1'; \
 } > /usr/local/etc/php/conf.d/opcache-recommended.ini
 
@@ -75,6 +78,13 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}/!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Moodle 5.x serves its ESM/React assets through the router in public/r.php.
+# Without a fallback, paths such as /core/esm/... return 404 and JS blocks never
+# finish loading (the dashboard stays on skeleton placeholders).
+RUN printf '<Directory %s>\n    FallbackResource /r.php\n</Directory>\n' "$APACHE_DOCUMENT_ROOT" \
+    > /etc/apache2/conf-available/moodle-router.conf \
+    && a2enconf moodle-router
 
 EXPOSE 80
 

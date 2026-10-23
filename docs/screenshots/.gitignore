@@ -1,0 +1,7 @@
+# Script-local dependencies (installed on demand by generate.sh)
+node_modules/
+
+# npm noise
+npm-debug.log*
+
+# Screenshot output is committed on purpose.

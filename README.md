@@ -1,6 +1,6 @@
 # Moocker
 
-A Docker-based Moodle training system `v5.2.1` on PHP `8.3` with Apache.
+A Docker-based Moodle training system `v5.3.0` on PHP `8.5` with Apache.
 
 <!-- buttons -->
 [![Stars](https://img.shields.io/github/stars/ivancarlosti/moocker?label=⭐%20Stars&color=gold&style=flat)](https://github.com/ivancarlosti/moocker/stargazers)
@@ -15,12 +15,16 @@ A Docker-based Moodle training system `v5.2.1` on PHP `8.3` with Apache.
 [![Code of Conduct](https://img.shields.io/badge/Code%20of%20Conduct-2.1-4baaaa)](https://github.com/ivancarlosti/moocker?tab=coc-ov-file)
 <!-- endbuttons -->
 
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Moocker dashboard running Moodle 5.3 on PHP 8.5" width="880">
+</p>
+
 ## Overview
 
 This project provides a production-ready Docker image for Moodle with the following features:
 
-- **PHP 8.3** with Apache and Moodle-optimized extensions (`mysqli`, `zip`, `gd`, `intl`, `soap`, `opcache`, `exif`)
-- **OPcache** pre-configured with Moodle-recommended values
+- **PHP 8.5** with Apache and Moodle-optimized extensions (`mysqli`, `zip`, `gd`, `intl`, `soap`, `opcache`, `exif`)
+- **OPcache** pre-configured with Moodle-recommended values (compiled into the PHP 8.5 binary, enabled via INI)
 - **PHP limits** tuned: `memory_limit=512M`, `max_execution_time=300`, `post_max_size=50M`, `upload_max_filesize=50M`, `max_input_vars=5000`
 - **Automatic entrypoint** that generates `config.php` from environment variables, purges stale caches, runs pending upgrades via CLI, starts the cron daemon, and launches Apache
 - **Automatic SSL Proxy detection**: if `MOODLE_URL` uses `https://`, `sslproxy` is enabled automatically, preventing redirect loops behind reverse proxies
@@ -33,10 +37,69 @@ This project provides a production-ready Docker image for Moodle with the follow
 > **Before updating the Docker image (`docker compose pull`), consider backing up your database and filesystem (`moodledata/`) before updating.**
 > Running docker compose pull triggers automated entrypoint updates that can modify your database schema and file structures. Taking a quick snapshot of your MariaDB database and filesystem before updating ensures you can easily roll back if any compatibility issues arise.
 
+> [!IMPORTANT]
+> **PHP 8.5 upstream support:** Moodle 5.3 is the first branch targeting PHP 8.5
+> ([MDL-84684](https://moodle.atlassian.net/browse/MDL-84684)), and that support
+> is still being finalised upstream, so some third-party plugins or admin
+> screens may emit deprecation notices. For a fully supported runtime, build
+> with `--build-arg PHP_VERSION=8.4`; the rationale and validation notes are in
+> [`plans/2026-10-23-php-85-upgrade.md`](plans/2026-10-23-php-85-upgrade.md).
+
+## Screenshots
+
+Captured from a real instance by
+[`docs/screenshots/generate.sh`](docs/screenshots/generate.sh) using the Boost
+theme at 1440×900.
+
+| Login | Dashboard |
+|---|---|
+| ![Moodle login page](docs/screenshots/login.png) | ![Moodle dashboard](docs/screenshots/dashboard.png) |
+
+| My courses | Demo course |
+|---|---|
+| ![My courses page](docs/screenshots/courses.png) | ![Course page with seeded activities](docs/screenshots/course.png) |
+
+| Course management | Site administration |
+|---|---|
+| ![Course management page](docs/screenshots/course-management.png) | ![Site administration page](docs/screenshots/site-admin.png) |
+
+| Plugins overview | Browse list of users |
+|---|---|
+| ![Plugins overview page](docs/screenshots/plugins.png) | ![Browse list of users page](docs/screenshots/users.png) |
+
+To regenerate them, see
+[`docs/screenshots/README.md`](docs/screenshots/README.md). The capture
+pipeline is documented in
+[`plans/2026-10-23-readme-screenshots.md`](plans/2026-10-23-readme-screenshots.md).
+
 ## Prerequisites
 
 - **Docker** and **Docker Compose** v2 installed
-- An accessible **MariaDB** database (can be local, remote, or in a separate container)
+- An accessible **MariaDB 11.4+** database (can be local, remote, or in a separate container)
+
+## Building the Image Locally
+
+```bash
+docker build -t moocker:local .
+```
+
+Both the PHP runtime and the Moodle tag are build arguments:
+
+```bash
+docker build \
+  --build-arg PHP_VERSION=8.4 \
+  --build-arg MOODLE_VERSION=v5.3.0 \
+  -t moocker:php84 .
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `PHP_VERSION` | `8.5` | PHP base image tag (`<version>-apache`, Debian-based) |
+| `MOODLE_VERSION` | `v5.3.0` | Moodle Git tag, branch or commit to clone |
+
+> PHP's current base images (8.4 and 8.5) compile OPcache into the binary; the
+> Dockerfile detects that and only builds the shared OPcache extension when the
+> base image does not already provide it, so runtime changes keep working.
 
 ## How to Run Locally
 
@@ -130,7 +193,8 @@ All variables supported by the container:
 
 ```
 moocker/
-├── Dockerfile                # Image build (PHP 8.3 + Moodle v5.2.1 + Apache)
+├── Dockerfile                # Image build (PHP 8.5 + Moodle v5.3.0 + Apache)
+├── .dockerignore             # Build context exclusions
 ├── moodle-entrypoint.sh      # Auto-configuration entrypoint script
 ├── manifest.json             # Project metadata and versioning
 ├── LICENSE                   # MIT License
@@ -139,6 +203,9 @@ moocker/
 │   ├── .env                  # Environment variables for Docker Compose
 │   ├── docker-compose.yml    # Moodle container orchestration
 │   └── moodledata/           # Mounted volume for Moodle data
+├── docs/
+│   └── screenshots/          # README screenshots and capture tooling
+├── plans/                    # Dated design and implementation notes
 └── .github/                  # CI/CD workflows
 ```
 

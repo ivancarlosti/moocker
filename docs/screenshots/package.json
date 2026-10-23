@@ -1,0 +1,14 @@
+{
+	"name": "moocker-screenshots",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Headless-browser screenshot generation for the Moocker README",
+	"type": "module",
+	"scripts": {
+		"capture": "node capture.mjs",
+		"generate": "./generate.sh"
+	},
+	"devDependencies": {
+		"playwright-core": "^1.49.0"
+	}
+}

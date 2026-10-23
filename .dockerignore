@@ -1,0 +1,6 @@
+# Build context exclusions
+.git
+.github
+docker/moodledata
+docs/screenshots/node_modules
+plans
