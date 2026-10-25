@@ -1,76 +1,94 @@
-name: 🎓 Check Moodle Updates
+name: Update Moodle Version
 
 on:
   schedule:
     - cron: '0 3 * * *' # Every day at 03:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: write       # required to dispatch semantic-release.yml / build.yml
+
 jobs:
   check-and-update:
-    name: 🔍 Check & Update Moodle
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
 
-      - name: 🌐 Fetch Latest Moodle Release Tag
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Latest Moodle Release Tag
         id: moodle_version
         run: |
           LATEST_TAG=$(git ls-remote --tags https://github.com/moodle/moodle.git | awk -F/ '{print $3}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
           if [ -z "$LATEST_TAG" ]; then
-            echo "❌ Error fetching latest Moodle version."
+            echo "Error fetching latest Moodle version."
             exit 1
           fi
-          echo "📌 Latest Moodle Tag is: $LATEST_TAG"
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest Moodle Tag is: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: 📋 Get Current Version in Dockerfile
-        id: current_version
-        run: |
-          CURRENT_TAG=$(grep '^ARG MOODLE_VERSION=' Dockerfile | cut -d '=' -f 2)
-          echo "🏷️ Current Moodle Tag is: $CURRENT_TAG"
-          echo "tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
-
-      - name: 🔄 Compare and Update Dockerfile
+      - name: Compare and Update Dockerfile
         id: update_check
+        env:
+          LATEST: ${{ steps.moodle_version.outputs.tag }}
         run: |
-          LATEST="${{ steps.moodle_version.outputs.tag }}"
-          CURRENT="${{ steps.current_version.outputs.tag }}"
-          
+          CURRENT=$(grep '^ARG MOODLE_VERSION=' Dockerfile | cut -d '=' -f 2)
+          echo "Current Moodle version in Dockerfile is: $CURRENT"
           if [ "$LATEST" != "$CURRENT" ]; then
-            echo "🆕 New version found ($LATEST). Updating Dockerfile."
-            sed -i "s/^ARG MOODLE_VERSION=.*/ARG MOODLE_VERSION=$LATEST/" Dockerfile
-            echo "should_trigger=true" >> $GITHUB_OUTPUT
+            echo "New version found ($LATEST). Updating Dockerfile."
+            # The tag arrives through env, but only a stable vX.Y.Z value may
+            # be written into the Dockerfile. Reject it again before sed.
+            if ! printf '%s\n' "$LATEST" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "Refusing to write a Moodle tag that is not a stable release: $LATEST"
+              exit 1
+            fi
+            sed -i "s/^ARG MOODLE_VERSION=.*/ARG MOODLE_VERSION=${LATEST}/" Dockerfile
+            echo "updated=true" >> "$GITHUB_OUTPUT"
           else
-            echo "✅ Dockerfile already contains the latest Moodle version ($CURRENT). No update needed."
-            echo "should_trigger=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # Force push on workflow_dispatch
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "🔄 Manual dispatch — forcing trigger."
-            echo "should_trigger=true" >> $GITHUB_OUTPUT
+            echo "Already tracking the latest Moodle version ($CURRENT)."
+            echo "updated=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 💾 Commit and Push Changes
-        if: steps.update_check.outputs.should_trigger == 'true'
+      - name: Commit and Push Changes
+        if: steps.update_check.outputs.updated == 'true'
+        env:
+          LATEST: ${{ steps.moodle_version.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Dockerfile
-          git commit -m "chore: Update Moodle version to ${{ steps.moodle_version.outputs.tag }}" || echo "⚠️ No changes to commit"
-          git push origin main
+          # Conventional type: semantic-release turns fix: into a patch release
+          # of this repo (for example v6.0.1), then dispatches build.yml.
+          # The tag is the repo version, not Moodle's.
+          git commit -m "fix(deps): update Moodle to ${LATEST}"
+          git push origin HEAD:main
 
-      - name: 🚀 Trigger Semantic Release
-        if: steps.update_check.outputs.should_trigger == 'true'
+      - name: Trigger Semantic Release
+        if: steps.update_check.outputs.updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Give GitHub a moment to register the push
+          # A push made with GITHUB_TOKEN does not start other workflows, so the
+          # commit above never reaches semantic-release on its own. Dispatch it
+          # with no version input so semantic-release cuts the next patch from
+          # the current repo version and dispatches build.yml itself.
           sleep 5
-          gh workflow run semantic-release.yml \
-            -f version="${{ steps.moodle_version.outputs.tag }}"
+          gh workflow run semantic-release.yml --ref main
+
+      - name: Manual run with no new Moodle — rebuild current release
+        if: steps.update_check.outputs.updated == 'false' && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Keeps the old "manual run forces a rebuild" behaviour: rebuild the
+          # newest existing release tag without creating a new version.
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -z "$TAG" ]; then
+            echo "No release tag found; nothing to rebuild."
+            exit 0
+          fi
+          echo "Rebuilding existing release ${TAG}"
+          gh workflow run build.yml --ref main -f version="${TAG}"
